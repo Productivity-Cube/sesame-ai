@@ -2,6 +2,7 @@
 # python3 detect_mask_webcam.py
 
 # import the necessary packages
+import requests
 from tensorflow.keras.applications.mobilenet_v2 import preprocess_input
 from tensorflow.keras.preprocessing.image import img_to_array
 from tensorflow.keras.models import load_model
@@ -103,11 +104,12 @@ vs = VideoStream(src=0).start()
 time.sleep(2.0)
 
 # loop over the frames from the video stream
+maskOnCounterStart = time.time()
 while True:
 	# grab the frame from the threaded video stream and resize it
 	# to have a maximum width of 400 pixels
 	frame = vs.read()
-	frame = imutils.resize(frame, width=500)
+	frame = imutils.resize(frame, width=800)
 
 	# detect faces in the frame and determine if they are wearing a
 	# face mask or not
@@ -115,6 +117,7 @@ while True:
 
 	# loop over the detected face locations and their corresponding
 	# locations
+	people = []
 	for (box, pred) in zip(locs, preds):
 		# unpack the bounding box and predictions
 		(startX, startY, endX, endY) = box
@@ -125,18 +128,26 @@ while True:
 		if mask > withoutMask:
 			label = "Thank You. Mask On."
 			color = (0, 255, 0)
-
+			people.append(1)
 		else:
 			label = "No Face Mask Detected"
 			color = (0, 0, 255)
-		
+			people.append(0)
+
 		# display the label and bounding box rectangle on the output
 		# frame
 		cv2.putText(frame, label, (startX-50, startY - 10),
 			cv2.FONT_HERSHEY_SIMPLEX, 0.7, color, 2)
 		cv2.rectangle(frame, (startX, startY), (endX, endY), color, 2)
 
+
 	# show the output frame
+	if not (len([a for a in people if a != 1]) == len(people) and len(people) > 0):
+		maskOnCounterStart = time.time()
+
+    # waiting fo 2 seconds
+	if (maskOnCounterStart + 2) < time.time():
+		requests.post('http://localhost:8000/api/people/mask', json={"people": people})
 	cv2.imshow("Face Mask Detector", frame)
 	key = cv2.waitKey(1) & 0xFF
 
